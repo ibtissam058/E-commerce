@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Retail Event Recommender</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b1020; --panel:#121a30; --line:#263354; --ink:#f3f6ff; --muted:#aebbd6; --accent:#75e2bd; --violet:#a98cff; }
+    * { box-sizing:border-box } body { margin:0; min-height:100vh; font-family:Inter,system-ui,sans-serif; color:var(--ink); background:radial-gradient(circle at 10% 0%,#20295d 0,transparent 32rem),var(--bg); }
+    main { width:min(1080px,calc(100% - 2rem)); margin:0 auto; padding:3.5rem 0 4rem; }
+    .eyebrow { color:var(--accent); font-weight:800; font-size:.75rem; letter-spacing:.14em; text-transform:uppercase } h1 { font-size:clamp(2.2rem,6vw,4.6rem); line-height:1; max-width:760px; margin:.65rem 0 1rem; letter-spacing:-.055em } .intro { color:var(--muted); max-width:680px; line-height:1.6; font-size:1.05rem }
+    .layout { display:grid; grid-template-columns:300px 1fr; gap:1.25rem; margin-top:2.5rem } .panel { background:color-mix(in srgb,var(--panel) 92%,transparent); border:1px solid var(--line); border-radius:18px; padding:1.25rem; box-shadow:0 20px 60px #0004 }
+    label { display:block; font-size:.8rem; color:var(--muted); margin:1rem 0 .4rem } label:first-child { margin-top:0 } input,select { appearance:none; width:100%; padding:.72rem .8rem; border:1px solid var(--line); background:#0c1327; color:var(--ink); border-radius:9px; font:inherit }
+    button { width:100%; margin-top:1.35rem; cursor:pointer; border:0; padding:.86rem 1rem; border-radius:9px; background:linear-gradient(100deg,var(--accent),#77cfff); color:#071322; font-weight:800; font-size:.95rem } button:disabled { opacity:.65; cursor:wait }
+    .results-head { display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-bottom:1rem } h2 { margin:0; font-size:1.2rem } #status { color:var(--muted); font-size:.86rem } #results { display:grid; gap:.75rem }
+    .empty { border:1px dashed var(--line); border-radius:12px; padding:2rem; color:var(--muted); text-align:center; line-height:1.5 } .card { display:grid; grid-template-columns:1fr auto; gap:.75rem; padding:1rem; border:1px solid var(--line); border-radius:12px; background:#0d152a } .card h3 { margin:0; font-size:1.04rem } .meta { color:var(--muted); font-size:.85rem; margin:.32rem 0 .65rem } .tags { display:flex; flex-wrap:wrap; gap:.35rem } .tag { color:#d9d0ff; background:#302852; border-radius:99px; padding:.25rem .5rem; font-size:.72rem } .score { align-self:start; text-align:right; color:var(--accent); font-size:1.25rem; font-weight:800 } .score small { display:block; font-size:.65rem; color:var(--muted); letter-spacing:.06em; text-transform:uppercase }
+    footer { margin-top:1rem; color:var(--muted); font-size:.8rem } a { color:var(--accent) } @media(max-width:720px) { main{padding-top:2.25rem}.layout{grid-template-columns:1fr}.card{grid-template-columns:1fr}.score{text-align:left} }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="eyebrow">Live promotion ranking</div>
+    <h1>Find the deal worth acting on.</h1>
+    <p class="intro">Choose the retail event and your spending limit. The recommender balances discount, product quality, stock signal, budget fit, and event urgency.</p>
+    <section class="layout">
+      <form class="panel" id="recommendation-form">
+        <label for="event">Retail event</label>
+        <select id="event"><option value="black_friday">Black Friday</option><option value="christmas">Christmas</option><option value="seasonal_sale">Seasonal sale</option><option value="flash_sale">Flash sale</option><option value="generic">General promotion</option></select>
+        <label for="category">Category (optional)</label>
+        <input id="category" value="electronics" placeholder="e.g. electronics">
+        <label for="budget">Maximum budget (USD)</label>
+        <input id="budget" type="number" min="1" value="150">
+        <label for="urgency">Event urgency: <span id="urgency-value">90%</span></label>
+        <input id="urgency" type="range" min="0" max="1" value="0.9" step="0.05">
+        <button type="submit">Find promotions</button>
+      </form>
+      <section class="panel">
+        <div class="results-head"><h2>Recommended for you</h2><span id="status">Ready</span></div>
+        <div id="results"><div class="empty">Select your preferences, then choose <strong>Find promotions</strong>.<br><br>The local demo catalog includes electronics and home offers.</div></div>
+      </section>
+    </section>
+    <footer>For technical API access, visit <a href="/docs">/docs</a>.</footer>
+  </main>
+  <script>
+    const form = document.querySelector('#recommendation-form'), results = document.querySelector('#results'), status = document.querySelector('#status'), button = form.querySelector('button');
+    const urgency = document.querySelector('#urgency'); urgency.addEventListener('input', () => document.querySelector('#urgency-value').textContent = Math.round(urgency.value * 100) + '%');
+    const escapeHtml = value => String(value).replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+    form.addEventListener('submit', async event => {
+      event.preventDefault(); button.disabled = true; status.textContent = 'Ranking offers…';
+      const budget = Number(document.querySelector('#budget').value), category = document.querySelector('#category').value.trim();
+      const body = { event: document.querySelector('#event').value, urgency: Number(urgency.value) };
+      if (budget > 0) body.budget = budget; if (category) body.category = category;
+      try {
+        const response = await fetch('/recommendations', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+        const data = await response.json(); if (!response.ok) throw new Error(data.detail || 'Request failed');
+        status.textContent = `${data.length} offer${data.length === 1 ? '' : 's'} found`;
+        results.innerHTML = data.length ? data.map(({product,score,reasons}) => `<article class="card"><div><h3>${escapeHtml(product.title)}</h3><div class="meta">${escapeHtml(product.brand || product.category)} · $${product.current_price.toFixed(2)}${product.original_price ? ` <s>$${product.original_price.toFixed(2)}</s>` : ''}</div><div class="tags">${reasons.map(reason => `<span class="tag">${escapeHtml(reason)}</span>`).join('')}</div></div><div class="score">${Math.round(score * 100)}<small>match score</small></div></article>`).join('') : '<div class="empty">No offers match these filters. Try another category or remove the budget.</div>';
+      } catch (error) { status.textContent = 'Could not load offers'; results.innerHTML = `<div class="empty">${escapeHtml(error.message)}</div>`; }
+      finally { button.disabled = false; }
+    });
+  </script>
+</body>
+</html>

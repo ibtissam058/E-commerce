@@ -1,0 +1,17 @@
+{
+  "name": "demo-retailer",
+  "start_urls": ["https://example.com/sale"],
+  "allowed_domains": ["example.com"],
+  "product_selector": ".product-card",
+  "request_delay_seconds": 1.5,
+  "max_pages": 1,
+  "selectors": {
+    "title": ".product-title",
+    "price": ".sale-price",
+    "original_price": ".regular-price",
+    "url": "a.product-link",
+    "image": "img",
+    "category": ".category",
+    "rating": ".rating"
+  }
+}
